@@ -28,16 +28,21 @@ $
 
 <pre>
 
-Usage: awsu [options] &lt;role-arn&gt; -- &lt;command&gt; [arguments]
+Usage: awsu <role-arn> <command> ...
 
-Options: 
-  -d int
-        Duration of the session (default 3600)
-  -e string
-        ExternalID to authenticate the request
-  -s string
-        Session name of the role to assume (default "awsu")
-  -v    Verbose error logging
+Arguments:
+  <role-arn>
+  <command> ...
+
+Flags:
+  -h, --help                                   Show context-sensitive help.
+  -s, --session-name="awsu"                    Session name of the role to assume
+  -e, --external-id=STRING                     ExternalID to authenticate the request
+  -d, --duration=3600                          Duration of the session
+  -v, --verbose                                Verbose error logging
+  -t, --session-tags=KEY=VALUE;...             Session tags to apply to the role-assumption (eg: -t tag1=batman)
+  -x, --transitive-tags=TRANSITIVE-TAGS,...    Keys for session tags which are transitive (eg: -x tag1)
+  -i, --source-identity=STRING                 Source identity to set for this session
 </pre>
 
 

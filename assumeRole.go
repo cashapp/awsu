@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +15,7 @@ import (
 
 // renewCredentials gets a new set of credentials from AWS
 // rendering it into the credentials tempfile
-func renewCredentials() error {
+func (c *CLI) renewCredentials() error {
 	sess, err := session.NewSession(&aws.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to retrieve a session: %v", err)
@@ -22,13 +23,29 @@ func renewCredentials() error {
 
 	svc := sts.New(sess)
 	req := &sts.AssumeRoleInput{
-		RoleArn:         &roleArn,
-		RoleSessionName: sessionName,
-		DurationSeconds: duration,
+		RoleArn:         aws.String(c.RoleArn),
+		RoleSessionName: aws.String(c.SessionName),
+		DurationSeconds: aws.Int64(c.Duration),
 	}
 
-	if *externalID != "" {
-		req.ExternalId = externalID
+	for key := range c.SessionTags {
+		log.Printf("Tagging Session: %q=%q", key, c.SessionTags[key])
+		req.Tags = append(req.Tags, &sts.Tag{
+			Key:   aws.String(key),
+			Value: aws.String(c.SessionTags[key]),
+		})
+	}
+
+	if len(c.TransitiveTags) > 0 {
+		req.TransitiveTagKeys = aws.StringSlice(c.TransitiveTags)
+	}
+
+	if c.ExternalID != "" {
+		req.ExternalId = &c.ExternalID
+	}
+
+	if c.SourceIdentity != "" {
+		req.SourceIdentity = &c.SourceIdentity
 	}
 
 	assumedRole, err := svc.AssumeRole(req)
