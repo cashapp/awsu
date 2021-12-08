@@ -1,50 +1,40 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/alecthomas/kong"
 )
 
 var tempDir string
 var credentialsRenew time.Time
 
-// CLI Flags
-var (
-	sessionName = flag.String("s", "awsu", "Session name of the role to assume")
-	externalID  = flag.String("e", "", "ExternalID to authenticate the request")
-	duration    = flag.Int64("d", 3600, "Duration of the session")
-	verbose     = flag.Bool("v", false, "Verbose error logging")
-	roleArn     string
-	command     string
-)
-
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [options] <role-arn> -- <command> [arguments]\n\nOptions: \n", path.Base(os.Args[0]))
-	flag.PrintDefaults()
-	fmt.Println()
+type CLI struct {
+	SessionName    string            `name:"session-name" short:"s" help:"Session name of the role to assume" default:"awsu"`
+	ExternalID     string            `name:"external-id" short:"e" help:"ExternalID to authenticate the request"`
+	Duration       int64             `name:"duration" short:"d" help:"Duration of the session" default:"3600"`
+	Verbose        bool              `name:"verbose" short:"v" help:"Verbose error logging"`
+	SessionTags    map[string]string `name:"session-tags" short:"t" help:"Session tags to apply to the role-assumption (eg: -t tag1=batman)"`
+	TransitiveTags []string          `name:"transitive-tags" short:"x" help:"Keys for session tags which are transitive (eg: -x tag1)"`
+	SourceIdentity string            `name:"source-identity" short:"i" help:"Source identity to set for this session"`
+	RoleArn        string            `arg:""`
+	Command        []string          `arg:"" passthrough:""`
 }
 
 func main() {
-	flag.Usage = usage
-	flag.Parse()
+	ctx := kong.Parse(&CLI{})
+	err := ctx.Run()
+	ctx.FatalIfErrorf(err)
+}
 
-	args := flag.Args()
-	if len(args) < 2 {
-		usage()
-		os.Exit(1)
-	}
-	roleArn = args[0]
-	command = args[1]
-	args = args[2:]
-
+func (c *CLI) Run(ctx *kong.Context) error {
 	var err error
 	tempDir, err = ioutil.TempDir("", "awsu")
 	if err != nil {
@@ -52,7 +42,7 @@ func main() {
 	}
 	defer os.RemoveAll(tempDir)
 
-	err = renewCredentials()
+	err = c.renewCredentials()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,24 +51,24 @@ func main() {
 		for {
 			time.Sleep(time.Until(credentialsRenew))
 
-			if *verbose {
+			if c.Verbose {
 				log.Print("awsu: Renewing credentials")
 			}
 
-			if err := renewCredentials(); err != nil {
+			if err := c.renewCredentials(); err != nil {
 				// We don't exit here - let the sub-command die it's own way
 				log.Print("awsu: Failed to renew credentials")
 				// Renew in a minute
 				credentialsRenew = time.Now().Add(time.Minute)
 			}
 
-			if *verbose {
+			if c.Verbose {
 				log.Printf("awsu: Credentials renewed, next renewal in  %s", humanDur(time.Until(credentialsRenew)))
 			}
 		}
 	}()
 
-	cmd := exec.Command(command, args...)
+	cmd := exec.Command(c.Command[0], c.Command[1:]...)
 	cmd.Env = []string{fmt.Sprintf("AWS_SHARED_CREDENTIALS_FILE=%s", filepath.Join(tempDir, "credentials"))}
 
 	// We strip any AWS_ vars (except region vars), to ensure we have precedence over credentials
@@ -94,14 +84,15 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 
-	log.Printf("Running %s with assumedRole %s, renewal in %s", command, roleArn, humanDur(time.Until(credentialsRenew)))
+	log.Printf("Running %s with assumedRole %s, renewal in %s", c.Command, c.RoleArn, humanDur(time.Until(credentialsRenew)))
 	err = cmd.Run()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			os.Exit(exitErr.ExitCode())
 		}
-		log.Fatalf("An error occurred waiting for cmd: %v", err)
+		return fmt.Errorf("an error occurred waiting for cmd; %w", err)
 	}
+	return nil
 }
 
 func humanDur(d time.Duration) string {
