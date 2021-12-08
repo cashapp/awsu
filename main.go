@@ -57,7 +57,7 @@ func (c *CLI) Run(ctx *kong.Context) error {
 
 			if err := c.renewCredentials(); err != nil {
 				// We don't exit here - let the sub-command die it's own way
-				log.Print("awsu: Failed to renew credentials")
+				log.Printf("awsu: Failed to renew credentials: %v", err)
 				// Renew in a minute
 				credentialsRenew = time.Now().Add(time.Minute)
 			}
