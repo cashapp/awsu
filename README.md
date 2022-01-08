@@ -28,11 +28,11 @@ $
 
 <pre>
 
-Usage: awsu <role-arn> <command> ...
+Usage: awsu &lt;role-arn&gt; &lt;command&gt; ...
 
 Arguments:
-  <role-arn>
-  <command> ...
+  &lt;role-arn&gt;
+  &lt;command&gt; ...
 
 Flags:
   -h, --help                                   Show context-sensitive help.
