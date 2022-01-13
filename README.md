@@ -7,9 +7,9 @@ While this is possible using the aws cli, it's quite cumbersome:
 
 ```bash
 ASSUME=$(aws sts assume-role --role-arn "${TARGET_ACCOUNT_ROLE}" --role-session-name="awsu-bash")
-export AWS_ACCESS_KEY_ID=$(echo "$ASSUME" | jq '.Credentials.AccessKeyId')
-export AWS_SECRET_ACCESS_KEY=$(echo "$ASSUME" | jq '.Credentials.SecretAccessKey')
-export AWS_SESSION_TOKEN=$(echo "$ASSUME" | jq '.Credentials.SessionToken')
+export AWS_ACCESS_KEY_ID=$(echo "$ASSUME" | jq -r '.Credentials.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(echo "$ASSUME" | jq -r '.Credentials.SecretAccessKey')
+export AWS_SESSION_TOKEN=$(echo "$ASSUME" | jq -r '.Credentials.SessionToken')
 ```
 
 Furthermore, depending on the duration of your tokens, they may expire before you're finished using them.
@@ -18,6 +18,15 @@ AWSU is designed to handle this for you, including performing token renewals at 
 
 ## Quickstart
 
+Assume a role by name:
+
+```base
+$ awsu superman bash
+2021/06/08 16:10:07 Running bash with assumedRole arn:aws:iam::468901978831:role/superman, renewal in 47m
+$ 
+```
+
+Or assume a role by ARN:
 ```bash
 $ awsu arn:aws:iam::468901978831:role/superman <command>
 2021/06/08 16:10:07 Running bash with assumedRole arn:aws:iam::468901978831:role/superman, renewal in 47m
@@ -49,7 +58,7 @@ Flags:
 ## License
 
 <pre>
-Copyright 2021 Square Inc.
+Copyright 2022 Square Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

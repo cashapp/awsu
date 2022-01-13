@@ -22,6 +22,16 @@ func (c *CLI) renewCredentials() error {
 	}
 
 	svc := sts.New(sess)
+
+	// Convert role name to role ARN
+	if !strings.HasPrefix(c.RoleArn, "arn:") {
+		callerIdentity, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+		if err != nil {
+			return fmt.Errorf("failed to discover parent account caller identity: %w", err)
+		}
+		c.RoleArn = fmt.Sprintf("arn:aws:iam::%s:role/%s", *callerIdentity.Account, c.RoleArn)
+	}
+
 	req := &sts.AssumeRoleInput{
 		RoleArn:         aws.String(c.RoleArn),
 		RoleSessionName: aws.String(c.SessionName),
@@ -75,7 +85,12 @@ func renderCredentials(dir string, creds *sts.Credentials) error {
 	}
 	defer cf.Close()
 
-	cf.WriteString("[default]\n")
+	awsProfile := os.Getenv("AWS_PROFILE")
+	if awsProfile == "" {
+		awsProfile = "default"
+	}
+
+	cf.WriteString(fmt.Sprintf("[%s]\n", awsProfile))
 	cf.WriteString(fmt.Sprintf("aws_access_key_id=%s\n", *creds.AccessKeyId))
 	cf.WriteString(fmt.Sprintf("aws_secret_access_key=%s\n", *creds.SecretAccessKey))
 	cf.WriteString(fmt.Sprintf("aws_session_token=%s\n", *creds.SessionToken))
